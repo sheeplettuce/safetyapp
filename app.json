@@ -9,7 +9,11 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photos",
+        "NSCameraUsageDescription": "This app needs access to your camera"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -26,7 +30,6 @@
     },
     "plugins": [
       "expo-router"
-      
     ],
     "experiments": {
       "typedRoutes": true,

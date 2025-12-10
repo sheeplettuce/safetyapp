@@ -1,68 +1,120 @@
+import axios from 'axios';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  Alert,
   FlatList,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
 
 interface Contact {
-  id: string;
+  idcontact: number;
   name: string;
-  lastMessage: string;
-  time: string;
-  unread?: number;
-  avatar: string;
+  phonenumber: string;
+  user_id: number;
 }
 
 const ChatScreen: React.FC = () => {
   const router = useRouter();
-  
-  const contacts: Contact[] = [
-    {
-      id: '1',
-      name: 'Soporte de Emergencia',
-      lastMessage: 'Estamos aquí para ayudarte 24/7',
-      time: '10:30',
-      unread: 2,
-      avatar: '👮',
-    },
-    {
-      id: '2',
-      name: 'Línea de Crisis',
-      lastMessage: 'No dudes en contactarnos',
-      time: '09:15',
-      avatar: '🆘',
-    },
-    {
-      id: '3',
-      name: 'Asistencia Legal',
-      lastMessage: 'Asesoría legal disponible',
-      time: 'Ayer',
-      avatar: '⚖️',
-    },
-    {
-      id: '4',
-      name: 'Apoyo Psicológico',
-      lastMessage: 'Estamos para escucharte',
-      time: 'Ayer',
-      avatar: '💚',
-    },
-    {
-      id: '5',
-      name: 'Centro de Atención',
-      lastMessage: 'Tu seguridad es nuestra prioridad',
-      time: 'Lunes',
-      avatar: '🏥',
-    },
-  ];
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newPhone, setNewPhone] = useState('');
+  const userId = 1; // TODO: Obtener del login
+
+  useEffect(() => {
+    loadContacts();
+  }, []);
+
+  const loadContacts = async () => {
+    try {
+      const response = await axios.get(
+        `http://192.168.0.137:3000/users/contacts/${userId}`
+      );
+      if (response.data.success) {
+        setContacts(response.data.contacts);
+      }
+    } catch (error) {
+      console.error('Error cargando contactos:', error);
+    }
+  };
+
+  const addContact = async () => {
+    if (!newName || !newPhone) {
+      Alert.alert('Error', 'Por favor completa todos los campos');
+      return;
+    }
+
+    try {
+      const response = await axios.post(
+        'http://192.168.0.137:3000/users/contacts',
+        {
+          user_id: userId,
+          name: newName,
+          phonenumber: newPhone
+        }
+      );
+
+      if (response.data.success) {
+        Alert.alert('Éxito', 'Contacto agregado');
+        setNewName('');
+        setNewPhone('');
+        setShowAddForm(false);
+        loadContacts();
+      }
+    } catch (error) {
+      console.error('Error agregando contacto:', error);
+      Alert.alert('Error', 'No se pudo agregar el contacto');
+    }
+  };
+
+  const deleteContact = async (contactId: number) => {
+    Alert.alert(
+      'Eliminar Contacto',
+      '¿Estás seguro de eliminar este contacto?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await axios.delete(
+                `http://192.168.0.137:3000/users/contacts/${contactId}`
+              );
+              if (response.data.success) {
+                loadContacts();
+              }
+            } catch (error) {
+              console.error('Error eliminando contacto:', error);
+            }
+          }
+        }
+      ]
+    );
+  };
 
   const handleContactPress = (contact: Contact) => {
-    console.log('Abriendo chat con:', contact.name);
-    // Aquí puedes navegar a una pantalla de chat individual
-    // router.push(`/chat/${contact.id}`);
+    Alert.alert(
+      contact.name,
+      `Número: ${contact.phonenumber}`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Llamar',
+          onPress: () => console.log('Llamar a:', contact.phonenumber)
+        },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: () => deleteContact(contact.idcontact)
+        }
+      ]
+    );
   };
 
   const renderContact = ({ item }: { item: Contact }) => (
@@ -71,25 +123,29 @@ const ChatScreen: React.FC = () => {
       onPress={() => handleContactPress(item)}
     >
       <View style={styles.avatarContainer}>
-        <Text style={styles.avatar}>{item.avatar}</Text>
+        <Text style={styles.avatar}>👤</Text>
       </View>
       
       <View style={styles.contactInfo}>
-        <View style={styles.contactHeader}>
-          <Text style={styles.contactName}>{item.name}</Text>
-          <Text style={styles.contactTime}>{item.time}</Text>
-        </View>
-        
-        <View style={styles.messageRow}>
-          <Text style={styles.lastMessage} numberOfLines={1}>
-            {item.lastMessage}
-          </Text>
-          {item.unread && (
-            <View style={styles.unreadBadge}>
-              <Text style={styles.unreadText}>{item.unread}</Text>
-            </View>
-          )}
-        </View>
+        <Text style={styles.contactName}>{item.name}</Text>
+        <Text style={styles.phoneNumber}>{item.phonenumber}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+
+  // Contacto 911 permanente
+  const render911Contact = () => (
+    <TouchableOpacity
+      style={[styles.contactItem, styles.emergencyContact]}
+      onPress={() => Alert.alert('911', 'Llamar al 911')}
+    >
+      <View style={[styles.avatarContainer, styles.emergencyAvatar]}>
+        <Text style={styles.avatar}>🚨</Text>
+      </View>
+      
+      <View style={styles.contactInfo}>
+        <Text style={styles.contactName}>Emergencias 911</Text>
+        <Text style={styles.phoneNumber}>911</Text>
       </View>
     </TouchableOpacity>
   );
@@ -107,25 +163,57 @@ const ChatScreen: React.FC = () => {
 
         <View style={styles.headerContent}>
           <View style={styles.chatIconCircle}>
-            <Text style={styles.chatIcon}>💬</Text>
+            <Text style={styles.chatIcon}>📞</Text>
           </View>
-          <Text style={styles.headerTitle}>Chat de Ayuda</Text>
+          <Text style={styles.headerTitle}>Contactos de Emergencia</Text>
         </View>
+
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => setShowAddForm(!showAddForm)}
+        >
+          <Text style={styles.addIcon}>{showAddForm ? '✕' : '+'}</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Search bar placeholder */}
-      <View style={styles.searchContainer}>
-        <Text style={styles.searchIcon}>🔍</Text>
-        <Text style={styles.searchPlaceholder}>Buscar contacto...</Text>
-      </View>
+      {/* Formulario para agregar contacto */}
+      {showAddForm && (
+        <View style={styles.addForm}>
+          <TextInput
+            style={styles.input}
+            placeholder="Nombre"
+            placeholderTextColor="#FFB3E6"
+            value={newName}
+            onChangeText={setNewName}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Teléfono"
+            placeholderTextColor="#FFB3E6"
+            value={newPhone}
+            onChangeText={setNewPhone}
+            keyboardType="phone-pad"
+          />
+          <TouchableOpacity style={styles.saveButton} onPress={addContact}>
+            <Text style={styles.saveButtonText}>Guardar Contacto</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
-      {/* Contacts List */}
+      {/* Lista de contactos */}
       <FlatList
         data={contacts}
         renderItem={renderContact}
-        keyExtractor={item => item.id}
+        keyExtractor={item => item.idcontact.toString()}
         style={styles.contactsList}
+        ListHeaderComponent={render911Contact}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No hay contactos agregados</Text>
+            <Text style={styles.emptySubtext}>Presiona + para agregar uno</Text>
+          </View>
+        }
       />
     </View>
   );
@@ -158,6 +246,23 @@ const styles = StyleSheet.create({
     fontSize: 30,
     color: '#FF69B4',
   },
+  addButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FF69B4',
+    borderRadius: 20,
+  },
+  addIcon: {
+    fontSize: 24,
+    color: '#FFF',
+    fontWeight: 'bold',
+  },
   headerContent: {
     alignItems: 'center',
     marginTop: 10,
@@ -179,23 +284,32 @@ const styles = StyleSheet.create({
     color: '#FF1493',
     fontWeight: '600',
   },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFB3E6',
+  addForm: {
+    backgroundColor: '#FFF',
+    padding: 20,
     marginHorizontal: 20,
-    marginBottom: 15,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    borderRadius: 25,
+    marginBottom: 10,
+    borderRadius: 15,
     gap: 10,
   },
-  searchIcon: {
-    fontSize: 18,
+  input: {
+    backgroundColor: '#FFE6F5',
+    borderRadius: 10,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#FF1493',
   },
-  searchPlaceholder: {
-    color: '#FF69B4',
-    fontSize: 15,
+  saveButton: {
+    backgroundColor: '#FF69B4',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  saveButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   contactsList: {
     flex: 1,
@@ -207,6 +321,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     alignItems: 'center',
   },
+  emergencyContact: {
+    backgroundColor: '#FFF5F5',
+    borderBottomWidth: 2,
+    borderBottomColor: '#FF69B4',
+  },
   avatarContainer: {
     width: 55,
     height: 55,
@@ -216,54 +335,41 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 15,
   },
+  emergencyAvatar: {
+    backgroundColor: '#FFE6F5',
+  },
   avatar: {
     fontSize: 28,
   },
   contactInfo: {
     flex: 1,
   },
-  contactHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 5,
-  },
   contactName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#000',
+    marginBottom: 4,
   },
-  contactTime: {
-    fontSize: 12,
-    color: '#999',
-  },
-  messageRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  lastMessage: {
+  phoneNumber: {
     fontSize: 14,
     color: '#666',
-    flex: 1,
-  },
-  unreadBadge: {
-    backgroundColor: '#FF69B4',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 6,
-    marginLeft: 8,
-  },
-  unreadText: {
-    color: '#FFF',
-    fontSize: 12,
-    fontWeight: 'bold',
   },
   separator: {
     height: 1,
     backgroundColor: '#F0F0F0',
     marginLeft: 85,
+  },
+  emptyContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#999',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#BBB',
   },
 });

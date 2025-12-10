@@ -10,16 +10,41 @@ const MapScreen: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string>('');
 
   useEffect(() => {
-    (async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setErrorMsg('Permiso de ubicación denegado');
-        return;
-      }
+    let subscriber: Location.LocationSubscription | null = null;
 
-      let currentLocation = await Location.getCurrentPositionAsync({});
-      setLocation(currentLocation);
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          setErrorMsg('Permiso de ubicación denegado');
+          return;
+        }
+
+        // Obtener la posición inicial inmediatamente
+        const initial = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest });
+        setLocation(initial);
+
+        // Luego suscribirse a actualizaciones continuas (GPS)
+        subscriber = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.Highest,
+            timeInterval: 1000, // ms entre actualizaciones
+            distanceInterval: 1, // metros mínimo para recibir una nueva actualización
+          },
+          (pos) => {
+            setLocation(pos);
+          }
+        );
+      } catch (e: any) {
+        setErrorMsg(e?.message ?? 'Error al obtener ubicación');
+      }
     })();
+
+    return () => {
+      if (subscriber) {
+        subscriber.remove();
+      }
+    };
   }, []);
 
   // Ubicación por defecto (Aguascalientes, México)
@@ -63,7 +88,7 @@ const MapScreen: React.FC = () => {
           <MapView
             style={styles.map}
             provider={PROVIDER_GOOGLE}
-            initialRegion={currentRegion}
+            region={currentRegion}
             showsUserLocation={true}
             showsMyLocationButton={true}
           >
