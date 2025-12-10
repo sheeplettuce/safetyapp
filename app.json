@@ -29,8 +29,29 @@
       "favicon": "./assets/images/favicon.ico"
     },
     "plugins": [
-      "expo-router"
-    ],
+      "expo-router",
+      [
+
+
+      "expo-camera",
+        {
+          "cameraPermission": "Permitir a $(PRODUCT_NAME) acceder a tu cámara para tomar fotos de emergencia."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Permitir a $(PRODUCT_NAME) usar tu ubicación para emergencias."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Permitir a $(PRODUCT_NAME) guardar fotos de emergencia.",
+          "savePhotosPermission": "Permitir a $(PRODUCT_NAME) guardar fotos de emergencia."
+        }
+    ]
+  ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true

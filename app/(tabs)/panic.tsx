@@ -1,10 +1,18 @@
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
+const BACKEND_URL = 'http://192.168.0.137:3000';
+const USER_ID = 1; // TODO: Obtener del login
+const EMERGENCY_WHATSAPP = '524622916549'; // Número de WhatsApp de emergencia
 
 const PanicScreen: React.FC = () => {
   const router = useRouter();
   const [isActivating, setIsActivating] = useState(false);
+  const [permission, requestPermission] = useCameraPermissions();
+  const cameraRef = useRef<CameraView>(null);
 
   const handlePanicButton = () => {
     Alert.alert(
@@ -24,33 +32,213 @@ const PanicScreen: React.FC = () => {
     );
   };
 
-  const activatePanic = () => {
+  const activatePanic = async () => {
     setIsActivating(true);
     
-    // TODO: Implementar llamada a emergencia 911
-    console.log('🚨 ACCIÓN 1: Llamando a Emergencia 911...');
-    
-    // TODO: Implementar captura de foto
-    console.log('📸 ACCIÓN 2: Tomando foto...');
-    
-    // TODO: Implementar envío de ubicación en tiempo real
-    console.log('📍 ACCIÓN 3: Enviando ubicación en tiempo real...');
-    
-    // Espacio para la lógica de activación del pánico
-    // Aquí irán las funciones para:
-    // - Llamar al número de emergencia
-    // - Activar la cámara y tomar foto
-    // - Obtener y enviar ubicación GPS
-    // - Enviar notificaciones a contactos de emergencia
-    
-    setTimeout(() => {
+    try {
+      // ACCIÓN 1: Tomar foto
+      console.log('📸 ACCIÓN 1: Tomando foto...');
+      const photoBase64 = await takePhoto();
+      
+      // ACCIÓN 2: Obtener ubicación
+      console.log('📍 ACCIÓN 2: Obteniendo ubicación...');
+      const location = await getLocation();
+      
+      // ACCIÓN 3: Enviar por WhatsApp
+      console.log('📱 ACCIÓN 3: Enviando alerta por WhatsApp...');
+      await sendWhatsAppAlert(location, photoBase64);
+      
+      // ACCIÓN 4: Guardar en base de datos
+      console.log('💾 ACCIÓN 4: Guardando registro...');
+      if (photoBase64) {
+        const photoId = await savePhoto(photoBase64);
+        await saveLocation(location?.latitude, location?.longitude);
+        await registerPanic(location?.latitude, location?.longitude, photoId);
+      }
+      
       setIsActivating(false);
-      Alert.alert('Pánico Activado', 'Todas las acciones han sido ejecutadas');
-    }, 2000);
+      Alert.alert(
+        '✅ Pánico Activado', 
+        'Se ha enviado la alerta de emergencia por WhatsApp con tu ubicación y foto.',
+        [{ text: 'OK', onPress: () => router.replace('/(tabs)/menu') }]
+      );
+    } catch (error) {
+      setIsActivating(false);
+      console.error('Error activando pánico:', error);
+      Alert.alert('Error', 'Hubo un problema al activar el pánico');
+    }
+  };
+
+  const takePhoto = async (): Promise<string | null> => {
+    try {
+      if (!permission?.granted) {
+        const result = await requestPermission();
+        if (!result.granted) {
+          Alert.alert('Error', 'Se necesita permiso de cámara');
+          return null;
+        }
+      }
+
+      if (cameraRef.current) {
+        const photo = await cameraRef.current.takePictureAsync({
+          base64: true,
+          quality: 0.5,
+        });
+
+        if (photo && photo.base64) {
+          console.log('✅ Foto capturada');
+          return photo.base64;
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('Error tomando foto:', error);
+      return null;
+    }
+  };
+
+  const getLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Error', 'Se necesita permiso de ubicación');
+        return null;
+      }
+
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+
+      console.log('✅ Ubicación obtenida:', location.coords);
+      return location.coords;
+    } catch (error) {
+      console.error('Error obteniendo ubicación:', error);
+      return null;
+    }
+  };
+
+  const sendWhatsAppAlert = async (
+    location: { latitude: number; longitude: number } | null,
+    photoBase64: string | null
+  ) => {
+    try {
+      let message = '🚨 *ALERTA DE PÁNICO* 🚨\n\n';
+      message += '⚠️ Se ha activado el botón de pánico\n\n';
+
+      if (location) {
+        message += `📍 *Ubicación:*\n`;
+        message += `Latitud: ${location.latitude}\n`;
+        message += `Longitud: ${location.longitude}\n`;
+        message += `Google Maps: https://www.google.com/maps?q=${location.latitude},${location.longitude}\n\n`;
+      } else {
+        message += '📍 Ubicación no disponible\n\n';
+      }
+
+      if (photoBase64) {
+        message += '📷 Foto capturada (ver en la base de datos)\n\n';
+      }
+
+      message += `🕐 Hora: ${new Date().toLocaleString('es-MX')}\n`;
+      message += '⚠️ *Por favor responda de inmediato*';
+
+      const encodedMessage = encodeURIComponent(message);
+      const whatsappUrl = `whatsapp://send?phone=${EMERGENCY_WHATSAPP}&text=${encodedMessage}`;
+
+      const supported = await Linking.canOpenURL(whatsappUrl);
+      if (supported) {
+        await Linking.openURL(whatsappUrl);
+        console.log('✅ WhatsApp abierto');
+      } else {
+        Alert.alert('Error', 'No se puede abrir WhatsApp');
+      }
+    } catch (error) {
+      console.error('Error enviando WhatsApp:', error);
+    }
+  };
+
+  const savePhoto = async (photoBase64: string): Promise<number | null> => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/panic/photo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: USER_ID,
+          photo_base64: photoBase64,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        console.log('✅ Foto guardada en DB con ID:', data.photo_id);
+        return data.photo_id;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error guardando foto:', error);
+      return null;
+    }
+  };
+
+  const saveLocation = async (latitude?: number, longitude?: number) => {
+    if (!latitude || !longitude) return;
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/panic/location`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: USER_ID,
+          latitude,
+          longitude,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        console.log('✅ Ubicación guardada en DB');
+      }
+    } catch (error) {
+      console.error('Error guardando ubicación:', error);
+    }
+  };
+
+  const registerPanic = async (
+    latitude?: number,
+    longitude?: number,
+    photoId?: number | null
+  ) => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/panic/activate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: USER_ID,
+          latitude: latitude || null,
+          longitude: longitude || null,
+          photo_id: photoId || null,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        console.log('✅ Pánico registrado en DB con ID:', data.panic_id);
+      }
+    } catch (error) {
+      console.error('Error registrando pánico:', error);
+    }
   };
 
   return (
     <View style={styles.container}>
+      {/* Cámara invisible */}
+      {permission?.granted && (
+        <CameraView
+          ref={cameraRef}
+          style={styles.camera}
+          facing="front"
+        />
+      )}
+
       {/* Botón de regreso */}
       <TouchableOpacity
         style={styles.backButton}
@@ -76,29 +264,26 @@ const PanicScreen: React.FC = () => {
 
       {/* Acciones que se ejecutarán */}
       <View style={styles.actionsContainer}>
-        {/* Emergencia 911 */}
         <View style={styles.actionItem}>
           <View style={styles.actionIconCircle}>
-            <Text style={styles.actionIcon}>📞</Text>
+            <Text style={styles.actionIcon}>📱</Text>
           </View>
-          <Text style={styles.actionText}>Emergencia 911</Text>
+          <Text style={styles.actionText}>Alerta por WhatsApp</Text>
         </View>
 
-        {/* Foto tomada */}
         <View style={styles.actionItem}>
           <View style={styles.actionIconCircle}>
             <Text style={styles.actionIcon}>📷</Text>
           </View>
-          <Text style={styles.actionText}>Foto tomada</Text>
+          <Text style={styles.actionText}>Foto capturada</Text>
         </View>
 
-        {/* Ubicación en tiempo real */}
         <View style={styles.actionItem}>
           <View style={styles.actionIconCircle}>
             <Text style={styles.actionIcon}>📍</Text>
           </View>
           <View style={styles.actionTextContainer}>
-            <Text style={styles.actionText}>ubicacion en tiempo</Text>
+            <Text style={styles.actionText}>Ubicación en tiempo</Text>
             <Text style={styles.actionText}>real</Text>
           </View>
         </View>
@@ -106,7 +291,10 @@ const PanicScreen: React.FC = () => {
 
       {isActivating && (
         <View style={styles.activatingOverlay}>
-          <Text style={styles.activatingText}>Activando pánico...</Text>
+          <Text style={styles.activatingText}>🚨 Activando pánico...</Text>
+          <Text style={styles.activatingSubtext}>
+            No cierres la aplicación
+          </Text>
         </View>
       )}
     </View>
@@ -120,6 +308,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFE6F5',
     paddingTop: 50,
+  },
+  camera: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    opacity: 0,
   },
   backButton: {
     position: 'absolute',
@@ -215,13 +409,19 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(255, 105, 180, 0.9)',
+    backgroundColor: 'rgba(255, 20, 147, 0.95)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   activatingText: {
-    fontSize: 24,
+    fontSize: 28,
     color: '#FFF',
     fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  activatingSubtext: {
+    fontSize: 16,
+    color: '#FFF',
+    opacity: 0.9,
   },
 });
