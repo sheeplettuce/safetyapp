@@ -1,30 +1,56 @@
+import axios from 'axios';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function LoginScreen() {
   const [usuario, setUsuario] = useState('');
   const [contrasena, setContrasena] = useState('');
   const router = useRouter();
 
-  const handleLogin = () => {
-    // Aquí agregarías tu lógica de autenticación
-    if (usuario && contrasena) {
-      // Si las credenciales son válidas, navegar al menú
-      router.replace('/menu');
-    } else {
-      alert('Por favor ingresa usuario y contraseña');
+  const handleLogin = async () => {
+    if (!usuario || !contrasena) {
+      Alert.alert('Error', 'Por favor ingresa usuario y contraseña');
+      return;
+    }
+
+    try {
+      console.log('Intentando login con:', usuario, contrasena);
+      
+      const response = await axios.post(
+        "http://192.168.0.137:3000/users/login",
+        {
+          username: usuario,
+          password: contrasena
+        }
+      );
+
+      console.log('Respuesta del servidor:', response.data);
+
+      if (response.data.success === true) {
+        Alert.alert('Éxito', 'Login correcto');
+        router.replace('/menu');
+      } else {
+        Alert.alert('Error', 'Credenciales incorrectas');
+      }
+    } catch (err: any) {
+      console.error('Error completo:', err);
+      if (err.response) {
+        console.log('Error response:', err.response.data);
+        Alert.alert('Error', 'Credenciales incorrectas');
+      } else if (err.request) {
+        console.log('Error request:', err.request);
+        Alert.alert('Error', 'No se pudo conectar con el servidor. Verifica que esté corriendo.');
+      } else {
+        console.log('Error:', err.message);
+        Alert.alert('Error', 'Error desconocido: ' + err.message);
+      }
     }
   };
 
   return (
     <View style={styles.container}>
-      {/* Botón circular en la esquina superior izquierda */}
-      <TouchableOpacity style={styles.backButton}>
-        <View style={styles.backButtonCircle} />
-      </TouchableOpacity>
-
       {/* Imagen de usuario */}
       <View style={styles.imageContainer}>
         <Image
@@ -78,18 +104,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFE6F5',
     alignItems: 'center',
     paddingTop: 60,
-  },
-  backButton: {
-    position: 'absolute',
-    top: 50,
-    left: 20,
-    zIndex: 10,
-  },
-  backButtonCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FF69B4',
   },
   imageContainer: {
     width: 180,

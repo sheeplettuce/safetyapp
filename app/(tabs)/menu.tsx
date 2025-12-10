@@ -6,19 +6,19 @@ const MenuScreen: React.FC = () => {
   const router = useRouter();
 
 const handleEmergencyNumbers = () => {
-  router.push('/emergency');
+  router.push('/(tabs)/emergency');
 };
 
 const handleViewMap = () => {
-  router.push('/map');
+  router.push('/(tabs)/map');
 };
 
   const handlePanicButton = () => {
-  router.push('/panic');
+  router.push('/(tabs)/panic');
   };
 
   const handleHelpChat = () => {
-    router.push('/chats');
+    router.push('/(tabs)/chats');
   };
 
   return (
@@ -26,7 +26,7 @@ const handleViewMap = () => {
       {/* Botón de regreso */}
       <TouchableOpacity
         style={styles.backButton}
-        onPress={() => router.replace('/login')}
+        onPress={() => router.replace('/(auth)/login')}
       >
         <Text style={styles.backIcon}>←</Text>
       </TouchableOpacity>

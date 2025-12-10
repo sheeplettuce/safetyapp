@@ -17,7 +17,11 @@ const EmergencyScreen: React.FC = () => {
 
   const handleAddContact = () => {
     console.log('Agregar nuevo contacto');
-    // Aquí puedes agregar lógica para agregar un nuevo contacto
+    const newContact: Contact = {
+      id: contacts.length + 1,
+      name: `Contacto ${contacts.length}`,
+    };
+    setContacts([...contacts, newContact]);
   };
 
   const handleContactPress = (contact: Contact) => {
@@ -30,7 +34,7 @@ const EmergencyScreen: React.FC = () => {
       {/* Botón de regreso */}
       <TouchableOpacity
         style={styles.backButton}
-        onPress={() => router.replace('/menu')}
+        onPress={() => router.replace('/(tabs)/menu')}
       >
         <Text style={styles.backIcon}>←</Text>
       </TouchableOpacity>
@@ -57,6 +61,14 @@ const EmergencyScreen: React.FC = () => {
           </TouchableOpacity>
         ))}
       </ScrollView>
+
+      {/* Botón para agregar contacto */}
+      <TouchableOpacity
+        style={styles.addButton}
+        onPress={handleAddContact}
+      >
+        <Text style={styles.addButtonText}>+</Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -125,5 +137,21 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#FF1493',
     fontWeight: '500',
+  },
+  addButton: {
+    position: 'absolute',
+    bottom: 30,
+    right: 30,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FF69B4',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addButtonText: {
+    fontSize: 36,
+    color: '#FFFFFF',
+    fontWeight: 'bold',
   },
 });

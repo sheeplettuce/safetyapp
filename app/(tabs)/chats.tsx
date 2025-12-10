@@ -1,11 +1,11 @@
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
-    FlatList,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 interface Contact {
@@ -100,7 +100,7 @@ const ChatScreen: React.FC = () => {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.replace('/menu')}
+          onPress={() => router.replace('/(tabs)/menu')}
         >
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>

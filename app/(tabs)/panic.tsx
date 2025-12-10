@@ -54,7 +54,7 @@ const PanicScreen: React.FC = () => {
       {/* Botón de regreso */}
       <TouchableOpacity
         style={styles.backButton}
-        onPress={() => router.replace('/menu')}
+        onPress={() => router.replace('/(tabs)/menu')}
       >
         <Text style={styles.backIcon}>←</Text>
       </TouchableOpacity>
